@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
 
     # App Settings
-    PROJECT_NAME: str = "Thought Compression Engine API"
+    PROJECT_NAME: str = "Flint API"
     VERSION: str = "0.1.0"
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,https://flintn.netlify.app"
 
