@@ -55,13 +55,10 @@ async def verify_mcp_auth(request: Request, call_next):
     # Only verify auth for the MCP routes
     if request.url.path.startswith("/api/mcp"):
         auth_header = request.headers.get("authorization")
-        query_token = request.query_params.get("token") or request.query_params.get("authorization")
         
         token = None
         if auth_header:
             token = auth_header
-        elif query_token:
-            token = query_token
             
         if not token:
             return JSONResponse(

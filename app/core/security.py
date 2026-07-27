@@ -115,9 +115,17 @@ async def verify_mcp_session_or_pat(token: str):
         if not pat:
             raise ValueError("Invalid or revoked Personal Access Token.")
             
+        # Check token expiration
+        if pat.expires_at and datetime.utcnow() > pat.expires_at:
+            raise ValueError("Personal Access Token has expired.")
+            
         user = await User.get(pat.user_id)
         if not user or not user.is_active:
             raise ValueError("User account is inactive or not found.")
+            
+        # Update last used timestamp
+        pat.last_used_at = datetime.utcnow()
+        await pat.save()
         return user
         
     # Check if token is a standard JWT session token
