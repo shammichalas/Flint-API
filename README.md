@@ -16,6 +16,34 @@ Upload a PDF and the backend:
 4. Extracts concepts and builds a semantic relationship graph
 5. Exposes endpoints for vector search, mental model generation (SWOT, First Principles, Decision Tree, Causal Loop), spaced repetition scheduling (SM-2 algorithm), scenario simulation, cross-document RAG synthesis, and an AI tutor chat
 
+### Authentication Workflow
+
+Flint implements a secure identity federation flow combining **Firebase Authentication** and standard **JWT Backend Sessions**:
+
+```mermaid
+sequenceDiagram
+    participant User as User Browser
+    participant Firebase as Firebase Auth
+    participant API as FastAPI Backend
+    participant DB as MongoDB (Beanie)
+
+    User->>Firebase: Login/Register (Email/Password or Google)
+    Firebase-->>User: Returns Firebase ID Token (JWT)
+    User->>API: POST /api/auth/firebase {id_token}
+    API->>API: Decode headers & match key ID (kid)
+    API->>API: Fetch & Verify RS256 signature via Google JWK
+    API->>API: Validate claims (iss, aud, exp)
+    API->>DB: Find or create User profile
+    API-->>User: Returns Backend Session Token (JWT)
+    User->>User: Save token in localStorage & redirect to Dashboard
+```
+
+1. **Client Auth**: The login page performs email/password signup/signin or Google Sign-In popups directly through the Firebase Web SDK.
+2. **Token Exchange**: Upon successful login, the client fetches the Firebase ID Token and POSTs it to `/api/auth/firebase`.
+3. **Backend Cryptographic Verification**: The backend verifier fetches Google's public JWK certificates (cached for 1 hour) to verify the token signature and claims.
+4. **Session Handshake**: Once verified, the backend matches the email to a user profile in MongoDB (auto-creating one if new) and signs a custom backend JWT session token.
+5. **Dashboard Access**: The frontend stores the backend JWT in `localStorage` to authorize standard API requests.
+
 ---
 
 ## Tech stack
