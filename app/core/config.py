@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # AI Config
     GEMINI_API_KEY: Optional[str] = None
 
+    # Firebase Config
+    FIREBASE_PROJECT_ID: Optional[str] = "login-page-d8013"
+
     # App Settings
     PROJECT_NAME: str = "Flint API"
     VERSION: str = "0.1.0"

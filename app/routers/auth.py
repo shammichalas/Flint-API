@@ -1,11 +1,13 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from app.core.security import get_password_hash, verify_password, create_access_token
+from app.core.security import get_password_hash, verify_password, create_access_token, verify_firebase_token
 from app.core.dependencies import get_current_user
+from app.core.config import settings
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut, Token, UserBase
 from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -76,4 +78,52 @@ async def get_me(current_user: User = Depends(get_current_user)):
         full_name=current_user.full_name,
         is_active=current_user.is_active,
         created_at=current_user.created_at
+    )
+
+class FirebaseLoginRequest(BaseModel):
+    id_token: str
+    full_name: Optional[str] = None
+
+@router.post("/firebase", response_model=Token)
+async def login_firebase(login_data: FirebaseLoginRequest):
+    if not settings.FIREBASE_PROJECT_ID:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Firebase Project ID is not configured on the server."
+        )
+        
+    try:
+        payload = verify_firebase_token(login_data.id_token, settings.FIREBASE_PROJECT_ID)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+        
+    email = payload.get("email")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Firebase ID token does not contain a verified email address."
+        )
+        
+    # Find or create user
+    user = await User.find_one(User.email == email)
+    if not user:
+        # Generate user's full name from Firebase claims or prompt details
+        full_name = payload.get("name") or login_data.full_name or email.split("@")[0]
+        
+        # User created via Firebase doesn't need a local password hash
+        user = User(
+            email=email,
+            hashed_password="",
+            full_name=full_name,
+            is_active=True
+        )
+        await user.insert()
+        
+    # Generate and return custom session access token
+    return Token(
+        access_token=create_access_token(user.id),
+        token_type="bearer"
     )
