@@ -9,8 +9,7 @@ from app.models.concept import ConceptItem
 from app.models.mental_model import MentalModelItem
 from app.models.memory import MemoryItem
 from app.models.simulation import SimulationItem
-
-
+from app.models.pat import PersonalAccessToken
 
 # Monkey-patch Motor to prevent Beanie v2's check for callable append_metadata on client database objects
 try:
@@ -33,8 +32,7 @@ async def init_db():
             ConceptItem,
             MentalModelItem,
             MemoryItem,
-            SimulationItem
+            SimulationItem,
+            PersonalAccessToken
         ]
-
-
     )

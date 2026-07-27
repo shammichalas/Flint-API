@@ -95,3 +95,45 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta = Non
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+async def verify_mcp_session_or_pat(token: str):
+    import hashlib
+    from app.models.pat import PersonalAccessToken
+    from app.models.user import User
+    from app.schemas.user import TokenPayload
+    
+    token = token.strip()
+    if token.startswith("Bearer "):
+        token = token[7:].strip()
+        
+    # Check if token is a Flint Personal Access Token (PAT)
+    if token.startswith("flint_pat_"):
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        pat = await PersonalAccessToken.find_one(
+            PersonalAccessToken.token_hash == token_hash,
+            PersonalAccessToken.is_active == True
+        )
+        if not pat:
+            raise ValueError("Invalid or revoked Personal Access Token.")
+            
+        user = await User.get(pat.user_id)
+        if not user or not user.is_active:
+            raise ValueError("User account is inactive or not found.")
+        return user
+        
+    # Check if token is a standard JWT session token
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+        if not token_data.sub:
+            raise ValueError("Session token is missing subject payload.")
+            
+        user = await User.get(token_data.sub)
+        if not user or not user.is_active:
+            raise ValueError("User account is inactive or not found.")
+        return user
+    except Exception as e:
+        raise ValueError(f"Authentication failed: {str(e)}")
+
+

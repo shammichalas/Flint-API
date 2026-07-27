@@ -465,7 +465,12 @@ async def start_document_ingestion(doc_id: str):
     
     try:
         # Step 1: Extract text
-        text = extract_text_from_pdf(doc.file_path)
+        if doc.file_path.lower().endswith(".pdf"):
+            text = extract_text_from_pdf(doc.file_path)
+        else:
+            with open(doc.file_path, "r", encoding="utf-8") as f:
+                text = f.read()
+                
         if not text.strip():
             raise ValueError("Document appears to be empty or contains no extractable text.")
             

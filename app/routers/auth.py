@@ -127,3 +127,84 @@ async def login_firebase(login_data: FirebaseLoginRequest):
         access_token=create_access_token(user.id),
         token_type="bearer"
     )
+
+# --- Personal Access Token (PAT) Schemas & Endpoints ---
+from datetime import datetime
+from typing import List
+from bson import ObjectId
+from app.models.pat import PersonalAccessToken
+
+class PATCreateRequest(BaseModel):
+    name: str
+
+class PATCreateResponse(BaseModel):
+    id: str
+    name: str
+    token: str  # Only returned once on creation
+    created_at: datetime
+
+class PATOut(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+
+@router.post("/pat", response_model=PATCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_pat(data: PATCreateRequest, current_user: User = Depends(get_current_user)):
+    import secrets
+    import hashlib
+    
+    # 1. Generate secure raw token string
+    raw_token = f"flint_pat_{secrets.token_urlsafe(32)}"
+    
+    # 2. Hash token for database lookup
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    
+    # 3. Create database entry
+    pat = PersonalAccessToken(
+        user_id=current_user.id,
+        name=data.name,
+        token_hash=token_hash,
+        is_active=True
+    )
+    await pat.insert()
+    
+    return PATCreateResponse(
+        id=str(pat.id),
+        name=pat.name,
+        token=raw_token,
+        created_at=pat.created_at
+    )
+
+@router.get("/pat", response_model=List[PATOut])
+async def list_pats(current_user: User = Depends(get_current_user)):
+    pats = await PersonalAccessToken.find(
+        PersonalAccessToken.user_id == current_user.id,
+        PersonalAccessToken.is_active == True
+    ).sort(-PersonalAccessToken.created_at).to_list()
+    
+    return [
+        PATOut(
+            id=str(p.id),
+            name=p.name,
+            created_at=p.created_at
+        ) for p in pats
+    ]
+
+@router.delete("/pat/{pat_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_pat(pat_id: str, current_user: User = Depends(get_current_user)):
+    if not ObjectId.is_valid(pat_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid PAT ID format."
+        )
+        
+    pat = await PersonalAccessToken.get(pat_id)
+    if not pat or pat.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Personal Access Token not found."
+        )
+        
+    await pat.delete()
+    return None
+
