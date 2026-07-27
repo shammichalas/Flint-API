@@ -146,6 +146,7 @@ Flint-API/
 | `DATABASE_NAME` | No | Database name (default: `thought_compression`) |
 | `SECRET_KEY` | Yes | JWT signing key (min 32 chars, no default) |
 | `GEMINI_API_KEY` | Yes | Google Gemini API key |
+| `FIREBASE_PROJECT_ID` | Yes | Firebase project ID (for JWT token verification) |
 | `ALLOWED_ORIGINS` | No | Comma-separated CORS origins |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | No | Token lifetime in minutes (default: 1440) |
 
